@@ -1,14 +1,13 @@
 data:
-  data_location: /slow-2/georges/dataset-urmp-wav
-  extension: "wav"
+  data_location: ./data
+  extension: wav
 
 preprocess:
-  sampling_rate: &samplingrate 16000
-  signal_length: &signallength 64000
-  block_size: &blocksize 160 # must be a power of 2 if using realtime
-
+  sampling_rate: &samplingrate 48000
+  signal_length: &signallength 192000 # error when signal_length / block_size is not an integer
+  block_size: &blocksize 512 # must be a power of 2 if using realtime # error when > real-time buffer size
   oneshot: false # crop every audio file to exactly signal length
-  out_dir: ./preprocessed/
+  out_dir: ./preprocess
 
 model:
   hidden_size: 512
@@ -18,5 +17,17 @@ model:
   block_size: *blocksize
 
 train:
+  model_name: name
   scales: [4096, 2048, 1024, 512, 256, 128]
-  overlap: .75
+  overlap: 0.75
+  steps: 50000
+  eval_steps: 100
+  batch_size: 16
+  learning_rate_start: 0.001
+  learning_rate_stop: 0.0001
+  decay: 400000
+  out_dir: ./train
+
+export:
+  out_dir: ./export
+  realtime: true

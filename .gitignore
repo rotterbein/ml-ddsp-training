@@ -4,3 +4,8 @@
 *__pycache__*
 export/*
 preprocessed/*
+*idea
+data/
+preprocess/
+train/
+venv/

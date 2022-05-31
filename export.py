@@ -10,14 +10,16 @@ torch.set_grad_enabled(False)
 
 
 class args(Config):
-    RUN = None
-    DATA = False
-    OUT_DIR = "export"
-    REALTIME = False
+    CONFIG = "config.yaml"
+    REALTIME = True
 
 
 args.parse_args()
-makedirs(args.OUT_DIR, exist_ok=True)
+
+with open(args.CONFIG, "r") as config:
+    config = yaml.safe_load(config)
+
+makedirs(path.join(config["export"]["out_dir"], config["train"]["model_name"]), exist_ok=True)
 
 
 class ScriptDDSP(torch.nn.Module):
@@ -32,53 +34,52 @@ class ScriptDDSP(torch.nn.Module):
 
     def forward(self, pitch, loudness):
         loudness = (loudness - self.mean_loudness) / self.std_loudness
-        if self.realtime:
+        pitch = pitch[:, ::self.ddsp.block_size]
+        loudness = loudness[:, ::self.ddsp.block_size]
+        # return self.ddsp.realtime_forward(pitch, loudness)
+        return self.ddsp.realtime_forward_controls(pitch, loudness)
+        
+        '''if self.realtime:
             pitch = pitch[:, ::self.ddsp.block_size]
             loudness = loudness[:, ::self.ddsp.block_size]
             return self.ddsp.realtime_forward(pitch, loudness)
         else:
-            return self.ddsp(pitch, loudness)
+            return self.ddsp(pitch, loudness)'''
 
 
-with open(path.join(args.RUN, "config.yaml"), "r") as config:
-    config = yaml.safe_load(config)
+with open(path.join(config["train"]["out_dir"], config["train"]["model_name"], "config.yaml"), "r") as out_config:
+    out_config = yaml.safe_load(out_config)
 
-ddsp = DDSP(**config["model"])
+ddsp = DDSP(**out_config["model"])
 
 state = ddsp.state_dict()
-pretrained = torch.load(path.join(args.RUN, "state.pth"), map_location="cpu")
+pretrained = torch.load(path.join(out_config["train"]["out_dir"], out_config["train"]["model_name"], "state.pth"), map_location="cpu")
 state.update(pretrained)
 ddsp.load_state_dict(state)
 
-name = path.basename(path.normpath(args.RUN))
+name = path.normpath(out_config["train"]["model_name"])
 
 scripted_model = torch.jit.script(
     ScriptDDSP(
         ddsp,
-        config["data"]["mean_loudness"],
-        config["data"]["std_loudness"],
+        out_config["data"]["mean_loudness"],
+        out_config["data"]["std_loudness"],
         args.REALTIME,
     ))
 torch.jit.save(
     scripted_model,
-    path.join(args.OUT_DIR, f"ddsp_{name}_pretrained.ts"),
+    path.join(out_config["export"]["out_dir"], out_config["train"]["model_name"], f"{name}_model.ts"),
 )
 
 impulse = ddsp.reverb.build_impulse().reshape(-1).numpy()
 sf.write(
-    path.join(args.OUT_DIR, f"ddsp_{name}_impulse.wav"),
+    path.join(out_config["export"]["out_dir"], out_config["train"]["model_name"], f"{name}_impulse.wav"),
     impulse,
-    config["preprocess"]["sampling_rate"],
+    out_config["preprocess"]["sampling_rate"],
 )
 
 with open(
-        path.join(args.OUT_DIR, f"ddsp_{name}_config.yaml"),
+        path.join(out_config["export"]["out_dir"], out_config["train"]["model_name"], f"{name}_config.yaml"),
         "w",
-) as config_out:
-    yaml.safe_dump(config, config_out)
-
-if args.DATA:
-    makedirs(path.join(args.OUT_DIR, "data"), exist_ok=True)
-    file_list = get_files(**config["data"])
-    file_list = [str(f).replace(" ", "\\ ") for f in file_list]
-    system(f"cp {' '.join(file_list)} {path.normpath(args.OUT_DIR)}/data/")
+) as copy_config:
+    yaml.safe_dump(out_config, copy_config)

@@ -15,13 +15,6 @@ import numpy as np
 
 class args(Config):
     CONFIG = "config.yaml"
-    NAME = "debug"
-    ROOT = "runs"
-    STEPS = 500000
-    BATCH = 16
-    START_LR = 1e-3
-    STOP_LR = 1e-4
-    DECAY_OVER = 400000
 
 
 args.parse_args()
@@ -33,11 +26,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 model = DDSP(**config["model"]).to(device)
 
-dataset = Dataset(config["preprocess"]["out_dir"])
+dataset = Dataset(path.join(config["preprocess"]["out_dir"], config["train"]["model_name"]))
 
 dataloader = torch.utils.data.DataLoader(
     dataset,
-    args.BATCH,
+    config["train"]["batch_size"],
     True,
     drop_last=True,
 )
@@ -46,18 +39,18 @@ mean_loudness, std_loudness = mean_std_loudness(dataloader)
 config["data"]["mean_loudness"] = mean_loudness
 config["data"]["std_loudness"] = std_loudness
 
-writer = SummaryWriter(path.join(args.ROOT, args.NAME), flush_secs=20)
+writer = SummaryWriter(path.join(config["train"]["out_dir"], config["train"]["model_name"]), flush_secs=20)
 
-with open(path.join(args.ROOT, args.NAME, "config.yaml"), "w") as out_config:
+with open(path.join(config["train"]["out_dir"], config["train"]["model_name"], "config.yaml"), "w") as out_config:
     yaml.safe_dump(config, out_config)
 
-opt = torch.optim.Adam(model.parameters(), lr=args.START_LR)
+opt = torch.optim.Adam(model.parameters(), lr=config["train"]["learning_rate_start"])
 
 schedule = get_scheduler(
     len(dataloader),
-    args.START_LR,
-    args.STOP_LR,
-    args.DECAY_OVER,
+    config["train"]["learning_rate_start"],
+    config["train"]["learning_rate_stop"],
+    config["train"]["decay"],
 )
 
 # scheduler = torch.optim.lr_scheduler.LambdaLR(opt, schedule)
@@ -66,7 +59,7 @@ best_loss = float("inf")
 mean_loss = 0
 n_element = 0
 step = 0
-epochs = int(np.ceil(args.STEPS / len(dataloader)))
+epochs = int(np.ceil(config["train"]["steps"] / len(dataloader)))
 
 for e in tqdm(range(epochs)):
     for s, p, l in dataloader:
@@ -106,7 +99,7 @@ for e in tqdm(range(epochs)):
         n_element += 1
         mean_loss += (loss.item() - mean_loss) / n_element
 
-    if not e % 10:
+    if not e % config["train"]["eval_steps"]:
         writer.add_scalar("lr", schedule(e), e)
         writer.add_scalar("reverb_decay", model.reverb.decay.item(), e)
         writer.add_scalar("reverb_wet", model.reverb.wet.item(), e)
@@ -115,7 +108,7 @@ for e in tqdm(range(epochs)):
             best_loss = mean_loss
             torch.save(
                 model.state_dict(),
-                path.join(args.ROOT, args.NAME, "state.pth"),
+                path.join(config["train"]["out_dir"], config["train"]["model_name"], "state.pth"),
             )
 
         mean_loss = 0
@@ -124,7 +117,7 @@ for e in tqdm(range(epochs)):
         audio = torch.cat([s, y], -1).reshape(-1).detach().cpu().numpy()
 
         sf.write(
-            path.join(args.ROOT, args.NAME, f"eval_{e:06d}.wav"),
+            path.join(config["train"]["out_dir"], config["train"]["model_name"], f"eval_{e:06d}.wav"),
             audio,
             config["preprocess"]["sampling_rate"],
         )
