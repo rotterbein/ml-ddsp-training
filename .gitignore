@@ -9,3 +9,4 @@ data/
 preprocess/
 train/
 venv/
+*vscode
