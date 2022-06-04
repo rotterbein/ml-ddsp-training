@@ -76,7 +76,7 @@ def main():
     pitch = np.concatenate(pitch, 0).astype(np.float32)
     loudness = np.concatenate(loudness, 0).astype(np.float32)
 
-    out_dir = config["preprocess"]["out_dir"]
+    out_dir = path.join(config["preprocess"]["out_dir"], config["train"]["model_name"])
     makedirs(out_dir, exist_ok=True)
 
     np.save(path.join(out_dir, "signal.npy"), signal)
