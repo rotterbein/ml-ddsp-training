@@ -246,8 +246,9 @@ class MfccDecoder(nn.Module):
             self.in_mlps[1](loudness)
         ], -1)
 
-        for i in range(self.mfcc_bins):
-            hidden = torch.cat([hidden, self.in_mlps[i+2](mfccs[:, :, i:(i+1)])], -1)
+        for i, layer in enumerate(self.in_mlps):  # avoid non-literal indexing of ModuleList by using enumeration
+            if i > 1:
+                hidden = torch.cat([hidden, layer(mfccs[:, :, i:(i+1)])], -1)
 
         hidden = torch.cat([self.gru(hidden)[0], pitch, loudness], -1)
 
@@ -298,16 +299,17 @@ class MfccDecoder(nn.Module):
     def realtime_forward_controls(self, pitch, loudness, mfccs):
         hidden = torch.cat([
             self.in_mlps[0](pitch),
-            self.in_mlps[1](loudness),
+            self.in_mlps[1](loudness)
         ], -1)
 
-        for i in range(self.mfcc_bins):
-            hidden = torch.cat([hidden, self.in_mlps[i+2](mfccs[i])], -1)
+        for i, layer in enumerate(self.in_mlps):
+            if i > 1:
+                hidden = torch.cat([hidden, layer(mfccs[:, :, i:(i + 1)])], -1)
 
         hidden = torch.cat([self.gru(hidden)[0], pitch, loudness], -1)
 
         for i in range(self.mfcc_bins):
-            hidden = torch.cat([hidden, mfccs[i]], -1)
+            hidden = torch.cat([hidden, mfccs[:, :, i:(i + 1)]], -1)
 
         hidden = self.out_mlp(hidden)
 
