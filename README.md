@@ -24,3 +24,9 @@ Once trained, export it using
 ```bash
 python export.py [--config <path-to-config-file>]
 ```
+
+Enable `TensorBoard` to monitor training parameters
+
+```bash
+tensorboard --logdir=<path-to-train-directory>
+```

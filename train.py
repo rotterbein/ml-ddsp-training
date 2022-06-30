@@ -104,7 +104,9 @@ for e in tqdm(range(epochs)):
         writer.add_scalar("reverb_decay", model.reverb.decay.item(), e)
         writer.add_scalar("reverb_wet", model.reverb.wet.item(), e)
         # scheduler.step()
-        if mean_loss < best_loss:
+
+        # save best performing model and avoid overfitting by early stopping
+        if best_loss > mean_loss > 4.5:
             best_loss = mean_loss
             torch.save(
                 model.state_dict(),
