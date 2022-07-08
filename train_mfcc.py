@@ -30,7 +30,7 @@ encoder = MfccEncoder(fft_sizes=config["mfcc"]["fft_sizes"],
                       mfcc_bins=config["mfcc"]["mfcc_bins"],
                       sampling_rate=config["model"]["sampling_rate"],
                       block_size=config["model"]["block_size"],
-                      signal_length=config["model"]["signal_length"]).to(device)
+                      signal_length=config["preprocess"]["signal_length"]).to(device)
 decoder = MfccDecoder(hidden_size=config["model"]["hidden_size"],
                       n_harmonic=config["model"]["n_harmonic"],
                       n_bands=config["model"]["n_bands"],

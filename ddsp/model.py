@@ -248,7 +248,8 @@ class MfccDecoder(nn.Module):
 
         for i, layer in enumerate(self.in_mlps):  # avoid non-literal indexing of ModuleList by using enumeration
             if i > 1:
-                hidden = torch.cat([hidden, layer(mfccs[:, :, i:(i+1)])], -1)
+                j = i - 2
+                hidden = torch.cat([hidden, layer(mfccs[:, :, j:(j+1)])], -1)
 
         hidden = torch.cat([self.gru(hidden)[0], pitch, loudness], -1)
 
