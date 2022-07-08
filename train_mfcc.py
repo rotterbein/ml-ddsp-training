@@ -25,8 +25,18 @@ with open(args.CONFIG, "r") as config:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # model = DDSP(**config["model"]).to(device)
-encoder = MfccEncoder(fft_sizes=1024, mel_bins=128, mfcc_bins=30, sampling_rate=48000, block_size=512, signal_length=192000).to(device)
-decoder = MfccDecoder(hidden_size=512, n_harmonic=100, n_bands=65, mfcc_bins=30, sampling_rate=48000, block_size=512).to(device)
+encoder = MfccEncoder(fft_sizes=config["mfcc"]["fft_sizes"],
+                      mel_bins=config["mfcc"]["mel_bins"],
+                      mfcc_bins=config["mfcc"]["mfcc_bins"],
+                      sampling_rate=config["model"]["sampling_rate"],
+                      block_size=config["model"]["block_size"],
+                      signal_length=config["model"]["signal_length"]).to(device)
+decoder = MfccDecoder(hidden_size=config["model"]["hidden_size"],
+                      n_harmonic=config["model"]["n_harmonic"],
+                      n_bands=config["model"]["n_bands"],
+                      mfcc_bins=config["mfcc"]["mfcc_bins"],
+                      sampling_rate=config["model"]["sampling_rate"],
+                      block_size=config["model"]["block_size"]).to(device)
 
 dataset = Dataset(path.join(config["preprocess"]["out_dir"], config["train"]["model_name"]))
 
