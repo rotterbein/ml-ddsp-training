@@ -51,7 +51,12 @@ class ScriptDDSP(torch.nn.Module):
 with open(path.join(config["train"]["out_dir"], config["train"]["model_name"], "config.yaml"), "r") as out_config:
     out_config = yaml.safe_load(out_config)
 
-ddsp = MfccDecoder(hidden_size=512, n_harmonic=100, n_bands=65, mfcc_bins=30, sampling_rate=48000, block_size=512)
+ddsp = MfccDecoder(hidden_size=config["model"]["hidden_size"],
+                   n_harmonic=config["model"]["n_harmonic"],
+                   n_bands=config["model"]["n_bands"],
+                   mfcc_bins=config["mfcc"]["mfcc_bins"],
+                   sampling_rate=config["model"]["sampling_rate"],
+                   block_size=config["model"]["block_size"])
 
 state = ddsp.state_dict()
 pretrained = torch.load(path.join(out_config["train"]["out_dir"], out_config["train"]["model_name"], "decoder_state.pth"), map_location="cpu")
