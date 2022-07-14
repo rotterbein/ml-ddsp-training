@@ -9,6 +9,11 @@ preprocess:
   oneshot: false # crop every audio file to exactly signal length
   out_dir: ./preprocess
 
+mfcc:
+  fft_sizes: 1024
+  mel_bins: 128
+  mfcc_bins: 30
+
 model:
   hidden_size: 512
   n_harmonic: 100
@@ -20,12 +25,12 @@ train:
   model_name: name
   scales: [4096, 2048, 1024, 512, 256, 128]
   overlap: 0.75
-  steps: 50000
+  steps: 30000
   eval_steps: 100
   batch_size: 16
   learning_rate_start: 0.001
   learning_rate_stop: 0.0001
-  decay: 400000
+  decay: 24000
   out_dir: ./train
 
 export:
