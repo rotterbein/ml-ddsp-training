@@ -37,7 +37,7 @@ class ScriptDDSPDecoder(torch.nn.Module):
         pitch = pitch[:, ::self.model.block_size]
         loudness = loudness[:, ::self.model.block_size]
 
-        if architecture is "audio_decoder":
+        if architecture == "audio_decoder":
             return self.model.realtime_forward_audio(pitch, loudness)
         else:
             return self.model.realtime_forward_controls(pitch, loudness)
@@ -64,7 +64,7 @@ class ScriptMfccDecoder(torch.nn.Module):
 with open(path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], "config.yaml"), "r") as out_config:
     out_config = yaml.safe_load(out_config)
 
-if architecture is "latent_decoder":
+if architecture == "latent_decoder":
     decoder = MfccDecoder(hidden_size=config["model"]["hidden_size"],
                           n_harmonic=config["model"]["n_harmonic"],
                           n_bands=config["model"]["n_bands"],
@@ -81,7 +81,7 @@ decoder.load_state_dict(state)
 
 name = path.normpath(out_config["train"]["model_name"])
 
-if architecture is "latent_decoder":
+if architecture == "latent_decoder":
     scripted_model = torch.jit.script(
         ScriptMfccDecoder(
             decoder,

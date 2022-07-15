@@ -25,7 +25,7 @@ with open(args.CONFIG, "r") as config:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 architecture = config["train"]["architecture"]
 
-if architecture is "latent_decoder":
+if architecture == "latent_decoder":
     encoder = MfccEncoder(fft_sizes=config["mfcc"]["fft_sizes"],
                           mel_bins=config["mfcc"]["mel_bins"],
                           mfcc_bins=config["mfcc"]["mfcc_bins"],
@@ -59,7 +59,7 @@ writer = SummaryWriter(path.join(config["train"]["out_dir"], architecture, confi
 with open(path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], "config.yaml"), "w") as out_config:
     yaml.safe_dump(config, out_config)
 
-if architecture is "latent_decoder":
+if architecture == "latent_decoder":
     opt = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=config["train"]["learning_rate_start"])
 else:
     opt = torch.optim.Adam(decoder.parameters(), lr=config["train"]["learning_rate_start"])
@@ -87,7 +87,7 @@ for e in tqdm(range(epochs)):
 
         l = (l - mean_loudness) / std_loudness
 
-        if architecture is "latent_decoder":
+        if architecture == "latent_decoder":
             z = encoder(s)
             y = decoder(p, l, z).squeeze(-1)
         else:
@@ -131,7 +131,7 @@ for e in tqdm(range(epochs)):
         if best_loss > mean_loss > 4.5:
             best_loss = mean_loss
 
-            if architecture is "latent_decoder":
+            if architecture == "latent_decoder":
                 torch.save(
                     encoder.state_dict(),
                     path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], "encoder_state.pth"),
