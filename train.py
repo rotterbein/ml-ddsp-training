@@ -23,7 +23,7 @@ with open(args.CONFIG, "r") as config:
     config = yaml.safe_load(config)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-architecture = config["model"]["architecture"]
+architecture = config["train"]["architecture"]
 
 if architecture is "latent_decoder":
     encoder = MfccEncoder(fft_sizes=config["mfcc"]["fft_sizes"],

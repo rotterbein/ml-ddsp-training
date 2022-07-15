@@ -10,7 +10,6 @@ preprocess:
   out_dir: ./preprocess
 
 model:
-  architecture: audio_decoder  # choose between 'audio_decoder', 'control_decoder' and 'latent_decoder'
   hidden_size: 512
   n_harmonic: 100
   n_bands: 65
@@ -24,6 +23,7 @@ mfcc:  # for latent-decoder
 
 train:
   model_name: name
+  architecture: audio_decoder  # choose between 'audio_decoder', 'control_decoder' and 'latent_decoder'
   scales: [4096, 2048, 1024, 512, 256, 128]
   overlap: 0.75
   steps: 30000

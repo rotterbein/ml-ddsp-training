@@ -18,7 +18,7 @@ args.parse_args()
 with open(args.CONFIG, "r") as config:
     config = yaml.safe_load(config)
 
-architecture = config["model"]["architecture"]
+architecture = config["train"]["architecture"]
 
 makedirs(path.join(config["export"]["out_dir"], architecture, config["train"]["model_name"]), exist_ok=True)
 
