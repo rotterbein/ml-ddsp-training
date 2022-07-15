@@ -4,22 +4,23 @@ data:
 
 preprocess:
   sampling_rate: &samplingrate 48000
-  signal_length: &signallength 192000 # error when signal_length / block_size is not an integer
-  block_size: &blocksize 512 # must be a power of 2 if using realtime # error when > real-time buffer size
-  oneshot: false # crop every audio file to exactly signal length
+  signal_length: &signallength 192000  # signal_length / block_size must be an integer
+  block_size: &blocksize 512  # must be a power of 2 if using realtime # error when > real-time buffer size
+  oneshot: false  # crop every audio file to exactly signal length
   out_dir: ./preprocess
 
-mfcc:
-  fft_sizes: 1024
-  mel_bins: 128
-  mfcc_bins: 30
-
 model:
+  architecture: audio_decoder  # choose between 'audio_decoder', 'control_decoder' and 'latent_decoder'
   hidden_size: 512
   n_harmonic: 100
   n_bands: 65
   sampling_rate: *samplingrate
   block_size: *blocksize
+
+mfcc:  # for latent-decoder
+  fft_sizes: 1024  # default 1024
+  mel_bins: 64  # default 128
+  mfcc_bins: 3  # default 30
 
 train:
   model_name: name
@@ -35,4 +36,3 @@ train:
 
 export:
   out_dir: ./export
-  realtime: true

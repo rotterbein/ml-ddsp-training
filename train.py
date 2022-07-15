@@ -1,7 +1,7 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import yaml
-from ddsp.model import DDSP
+from ddsp.model import DDSPDecoder, MfccEncoder, MfccDecoder
 from effortless_config import Config
 from os import path
 from preprocess import Dataset
@@ -23,8 +23,23 @@ with open(args.CONFIG, "r") as config:
     config = yaml.safe_load(config)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+architecture = config["model"]["architecture"]
 
-model = DDSP(**config["model"]).to(device)
+if architecture is "latent_decoder":
+    encoder = MfccEncoder(fft_sizes=config["mfcc"]["fft_sizes"],
+                          mel_bins=config["mfcc"]["mel_bins"],
+                          mfcc_bins=config["mfcc"]["mfcc_bins"],
+                          sampling_rate=config["model"]["sampling_rate"],
+                          block_size=config["model"]["block_size"],
+                          signal_length=config["preprocess"]["signal_length"]).to(device)
+    decoder = MfccDecoder(hidden_size=config["model"]["hidden_size"],
+                          n_harmonic=config["model"]["n_harmonic"],
+                          n_bands=config["model"]["n_bands"],
+                          mfcc_bins=config["mfcc"]["mfcc_bins"],
+                          sampling_rate=config["model"]["sampling_rate"],
+                          block_size=config["model"]["block_size"]).to(device)
+else:
+    decoder = DDSPDecoder(**config["model"]).to(device)
 
 dataset = Dataset(path.join(config["preprocess"]["out_dir"], config["train"]["model_name"]))
 
@@ -39,12 +54,15 @@ mean_loudness, std_loudness = mean_std_loudness(dataloader)
 config["data"]["mean_loudness"] = mean_loudness
 config["data"]["std_loudness"] = std_loudness
 
-writer = SummaryWriter(path.join(config["train"]["out_dir"], config["train"]["model_name"]), flush_secs=20)
+writer = SummaryWriter(path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"]), flush_secs=20)
 
-with open(path.join(config["train"]["out_dir"], config["train"]["model_name"], "config.yaml"), "w") as out_config:
+with open(path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], "config.yaml"), "w") as out_config:
     yaml.safe_dump(config, out_config)
 
-opt = torch.optim.Adam(model.parameters(), lr=config["train"]["learning_rate_start"])
+if architecture is "latent_decoder":
+    opt = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=config["train"]["learning_rate_start"])
+else:
+    opt = torch.optim.Adam(decoder.parameters(), lr=config["train"]["learning_rate_start"])
 
 schedule = get_scheduler(
     len(dataloader),
@@ -69,7 +87,11 @@ for e in tqdm(range(epochs)):
 
         l = (l - mean_loudness) / std_loudness
 
-        y = model(p, l).squeeze(-1)
+        if architecture is "latent_decoder":
+            z = encoder(s)
+            y = decoder(p, l, z).squeeze(-1)
+        else:
+            y = decoder(p, l).squeeze(-1)
 
         ori_stft = multiscale_fft(
             s,
@@ -101,17 +123,28 @@ for e in tqdm(range(epochs)):
 
     if not e % config["train"]["eval_steps"]:
         writer.add_scalar("lr", schedule(e), e)
-        writer.add_scalar("reverb_decay", model.reverb.decay.item(), e)
-        writer.add_scalar("reverb_wet", model.reverb.wet.item(), e)
+        writer.add_scalar("reverb_decay", decoder.reverb.decay.item(), e)
+        writer.add_scalar("reverb_wet", decoder.reverb.wet.item(), e)
         # scheduler.step()
 
         # save best performing model and avoid overfitting by early stopping
         if best_loss > mean_loss > 4.5:
             best_loss = mean_loss
-            torch.save(
-                model.state_dict(),
-                path.join(config["train"]["out_dir"], config["train"]["model_name"], "state.pth"),
-            )
+
+            if architecture is "latent_decoder":
+                torch.save(
+                    encoder.state_dict(),
+                    path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], "encoder_state.pth"),
+                )
+                torch.save(
+                    decoder.state_dict(),
+                    path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], "decoder_state.pth"),
+                )
+            else:
+                torch.save(
+                    decoder.state_dict(),
+                    path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], "decoder_state.pth"),
+                )
 
         mean_loss = 0
         n_element = 0
@@ -119,7 +152,7 @@ for e in tqdm(range(epochs)):
         audio = torch.cat([s, y], -1).reshape(-1).detach().cpu().numpy()
 
         sf.write(
-            path.join(config["train"]["out_dir"], config["train"]["model_name"], f"eval_{e:06d}.wav"),
+            path.join(config["train"]["out_dir"], architecture, config["train"]["model_name"], f"eval_{e:06d}.wav"),
             audio,
             config["preprocess"]["sampling_rate"],
         )

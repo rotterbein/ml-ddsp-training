@@ -38,7 +38,7 @@ class Reverb(nn.Module):
         return x
 
 
-class DDSP(nn.Module):
+class DDSPDecoder(nn.Module):
     def __init__(self, hidden_size, n_harmonic, n_bands, sampling_rate, block_size):
         super().__init__()
         self.register_buffer("sampling_rate", torch.tensor(sampling_rate))
@@ -105,7 +105,7 @@ class DDSP(nn.Module):
 
         return signal
 
-    def realtime_forward(self, pitch, loudness):  # CPUFloatType{1,4,1}  # 4 = buffer_size / block_size
+    def realtime_forward_audio(self, pitch, loudness):  # CPUFloatType{1,4,1}  # 4 = buffer_size / block_size
         hidden = torch.cat([
             self.in_mlps[0](pitch),  # CPUFloatType{1,4,512}
             self.in_mlps[1](loudness),  # CPUFloatType{1,4,512}
@@ -186,7 +186,7 @@ class DDSP(nn.Module):
             pitch,
             self.sampling_rate,
         )
-        amplitudes /= amplitudes.sum(-1, keepdim=True)  # dividing by zero?
+        amplitudes /= amplitudes.sum(-1, keepdim=True)
         amplitudes *= total_amp  # CPUFloatType{1,1,100}
 
         # noise part
@@ -227,8 +227,8 @@ class MfccDecoder(nn.Module):
         self.mfcc_bins = mfcc_bins
 
         self.in_mlps = nn.ModuleList([mlp(1, hidden_size, 3)] * (mfcc_bins + 2))  # latents = num mfcc_bins + pitch + loudness
-        self.gru = gru((mfcc_bins + 2), hidden_size)  # gru(2, hidden_size)?
-        self.out_mlp = mlp(hidden_size + (mfcc_bins + 2), hidden_size, 3)  # mlp(hidden_size + 2, hidden_size, 3)?
+        self.gru = gru((mfcc_bins + 2), hidden_size)
+        self.out_mlp = mlp(hidden_size + (mfcc_bins + 2), hidden_size, 3)
 
         self.proj_matrices = nn.ModuleList([
             nn.Linear(hidden_size, n_harmonic + 1),
@@ -317,21 +317,21 @@ class MfccDecoder(nn.Module):
 
         # harmonic part
         param = scale_function(
-            self.proj_matrices[0](hidden))  # CPUFloatType{1,1,101}, element 0: total amplitude, 1-101: harmonic amps
+            self.proj_matrices[0](hidden))
 
         total_amp = param[..., :1]
-        amplitudes = param[..., 1:]  # CPUFloatType{1,1,100}
+        amplitudes = param[..., 1:]
 
         amplitudes = remove_above_nyquist(
             amplitudes,
             pitch,
             self.sampling_rate,
         )
-        amplitudes /= amplitudes.sum(-1, keepdim=True)  # dividing by zero?
-        amplitudes *= total_amp  # CPUFloatType{1,1,100}
+        amplitudes /= amplitudes.sum(-1, keepdim=True)
+        amplitudes *= total_amp
 
         # noise part
-        param = scale_function(self.proj_matrices[1](hidden) - 5)  # CPUFloatType{1,1,65}
+        param = scale_function(self.proj_matrices[1](hidden) - 5)
         magnitudes = param
 
         return amplitudes, magnitudes
