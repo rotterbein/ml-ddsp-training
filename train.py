@@ -25,6 +25,10 @@ with open(args.CONFIG, "r") as config:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 architecture = config["train"]["architecture"]
 
+if architecture not in ["audio_decoder", "control_decoder", "latent_decoder"]:
+    raise ValueError(
+        'Undefined architecture. Set architecture in config: audio_decoder, control_decoder or latent_decoder')
+
 if architecture == "latent_decoder":
     encoder = MfccEncoder(fft_sizes=config["mfcc"]["fft_sizes"],
                           mel_bins=config["mfcc"]["mel_bins"],

@@ -20,10 +20,14 @@ with open(args.CONFIG, "r") as config:
 
 architecture = config["train"]["architecture"]
 
+if architecture not in ["audio_decoder", "control_decoder", "latent_decoder"]:
+    raise ValueError(
+        'Undefined architecture. Set architecture in config: audio_decoder, control_decoder or latent_decoder')
+
 makedirs(path.join(config["export"]["out_dir"], architecture, config["train"]["model_name"]), exist_ok=True)
 
 
-class ScriptDDSPDecoder(torch.nn.Module):
+class ScriptDDSPAudioDecoder(torch.nn.Module):
     def __init__(self, model, mean_loudness, std_loudness):
         super().__init__()
         self.model = model
@@ -37,10 +41,24 @@ class ScriptDDSPDecoder(torch.nn.Module):
         pitch = pitch[:, ::self.model.block_size]
         loudness = loudness[:, ::self.model.block_size]
 
-        if architecture == "audio_decoder":
-            return self.model.realtime_forward_audio(pitch, loudness)
-        else:
-            return self.model.realtime_forward_controls(pitch, loudness)
+        return self.model.realtime_forward_audio(pitch, loudness)
+
+
+class ScriptDDSPControlDecoder(torch.nn.Module):
+    def __init__(self, model, mean_loudness, std_loudness):
+        super().__init__()
+        self.model = model
+        self.model.gru.flatten_parameters()
+
+        self.register_buffer("mean_loudness", torch.tensor(mean_loudness))
+        self.register_buffer("std_loudness", torch.tensor(std_loudness))
+
+    def forward(self, pitch, loudness):
+        loudness = (loudness - self.mean_loudness) / self.std_loudness
+        pitch = pitch[:, ::self.model.block_size]
+        loudness = loudness[:, ::self.model.block_size]
+
+        return self.model.realtime_forward_controls(pitch, loudness)
 
 
 class ScriptMfccDecoder(torch.nn.Module):
@@ -88,9 +106,16 @@ if architecture == "latent_decoder":
             out_config["data"]["mean_loudness"],
             out_config["data"]["std_loudness"],
         ))
+elif architecture == "control_decoder":
+    scripted_model = torch.jit.script(
+        ScriptDDSPControlDecoder(
+            decoder,
+            out_config["data"]["mean_loudness"],
+            out_config["data"]["std_loudness"],
+        ))
 else:
     scripted_model = torch.jit.script(
-        ScriptDDSPDecoder(
+        ScriptDDSPAudioDecoder(
             decoder,
             out_config["data"]["mean_loudness"],
             out_config["data"]["std_loudness"],
