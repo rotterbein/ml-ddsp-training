@@ -32,6 +32,7 @@ train:
   learning_rate_start: 0.001
   learning_rate_stop: 0.0001
   decay: 24000
+  early_stopping: 4.0
   out_dir: ./train
 
 export:
