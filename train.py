@@ -128,7 +128,7 @@ for e in tqdm(range(epochs)):
         # scheduler.step()
 
         # save best performing model and avoid overfitting by early stopping
-        if best_loss > mean_loss > 4.5:
+        if best_loss > mean_loss > 4:
             best_loss = mean_loss
 
             if architecture == "latent_decoder":
